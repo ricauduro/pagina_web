@@ -1,55 +1,715 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <title>Enviar Mensagem WhatsApp</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kanban Board</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #21262d;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #388bfd;
+      --todo: #388bfd;
+      --progress: #d29922;
+      --done: #3fb950;
+      --danger: #f85149;
+      --radius: 8px;
+      --shadow: 0 4px 16px rgba(0,0,0,.4);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--text);
+      text-decoration: none;
+    }
+    .header-brand svg { color: var(--accent); }
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: var(--radius);
+      font-size: .875rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: opacity .15s, background .15s;
+    }
+    .btn:hover { opacity: .85; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-ghost { background: transparent; border-color: var(--border); color: var(--text); }
+    .btn-ghost:hover { background: var(--surface2); }
+    .btn-icon {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      transition: color .15s, background .15s;
+    }
+    .btn-icon:hover { color: var(--text); background: var(--surface2); }
+
+    .search-wrap {
+      position: relative;
+      flex: 1;
+      max-width: 320px;
+    }
+    .search-wrap svg {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+    .search-wrap input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 6px 10px 6px 32px;
+      font-size: .875rem;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .search-wrap input:focus { border-color: var(--accent); }
+    .search-wrap input::placeholder { color: var(--text-muted); }
+
+    .board {
+      display: flex;
+      gap: 16px;
+      padding: 24px;
+      flex: 1;
+      overflow-x: auto;
+    }
+
+    .column {
+      flex: 1;
+      min-width: 280px;
+      max-width: 380px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      max-height: calc(100vh - 104px);
+    }
+
+    .column-header {
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .col-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .col-todo   .col-dot { background: var(--todo); }
+    .col-progress .col-dot { background: var(--progress); }
+    .col-done   .col-dot { background: var(--done); }
+
+    .col-title {
+      font-weight: 600;
+      font-size: .9rem;
+      flex: 1;
+    }
+    .col-count {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: .75rem;
+      font-weight: 600;
+      padding: 1px 8px;
+      color: var(--text-muted);
+    }
+
+    .cards {
+      padding: 10px;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .cards::-webkit-scrollbar { width: 4px; }
+    .cards::-webkit-scrollbar-track { background: transparent; }
+    .cards::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 12px 10px;
+      cursor: grab;
+      transition: box-shadow .15s, border-color .15s, opacity .15s;
+      position: relative;
+    }
+    .card:hover { border-color: var(--accent); box-shadow: var(--shadow); }
+    .card.dragging { opacity: .4; cursor: grabbing; }
+    .card.drag-over-above { border-top: 2px solid var(--accent); }
+    .card.drag-over-below { border-bottom: 2px solid var(--accent); }
+
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .card-title {
+      font-size: .875rem;
+      font-weight: 500;
+      flex: 1;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .card-actions {
+      display: flex;
+      gap: 2px;
+      opacity: 0;
+      transition: opacity .15s;
+      flex-shrink: 0;
+    }
+    .card:hover .card-actions { opacity: 1; }
+
+    .card-desc {
+      font-size: .8rem;
+      color: var(--text-muted);
+      margin-top: 6px;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+      gap: 8px;
+    }
+    .tag {
+      font-size: .7rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .tag-alta   { background: rgba(248,81,73,.15); color: #f85149; }
+    .tag-media  { background: rgba(210,153,34,.15); color: #d29922; }
+    .tag-baixa  { background: rgba(63,185,80,.15);  color: #3fb950; }
+    .tag-none   { display: none; }
+
+    .card-date {
+      font-size: .7rem;
+      color: var(--text-muted);
+    }
+
+    .add-card-btn {
+      margin: 6px 10px 10px;
+      background: transparent;
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      color: var(--text-muted);
+      font-size: .8rem;
+      padding: 8px;
+      cursor: pointer;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: border-color .15s, color .15s, background .15s;
+      width: calc(100% - 20px);
+    }
+    .add-card-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(56,139,253,.05);
+    }
+
+    .column.drag-target .cards {
+      background: rgba(56,139,253,.05);
+      border-radius: 6px;
+    }
+
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.6);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 100%;
+      max-width: 460px;
+      box-shadow: var(--shadow);
+      animation: modalIn .18s ease;
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(.95) translateY(-8px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .modal-header {
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-title { font-weight: 700; font-size: 1rem; }
+    .modal-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+    .modal-footer {
+      padding: 14px 20px 18px;
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    label input, label textarea, label select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 8px 10px;
+      font-size: .875rem;
+      outline: none;
+      font-family: inherit;
+      transition: border-color .15s;
+    }
+    label input:focus, label textarea:focus, label select:focus { border-color: var(--accent); }
+    label textarea { resize: vertical; min-height: 72px; }
+    label select option { background: var(--surface2); }
+
+    .confirm-msg { font-size: .9rem; color: var(--text-muted); }
+    .btn-danger { background: var(--danger); color: #fff; }
+
+    .empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 32px 16px;
+      color: var(--text-muted);
+      font-size: .8rem;
+      text-align: center;
+    }
+    .empty svg { opacity: .4; }
+
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 18px;
+      font-size: .85rem;
+      color: var(--text);
+      z-index: 500;
+      transition: transform .3s ease;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+
+    @media (max-width: 700px) {
+      .board { flex-direction: column; }
+      .column { max-width: 100%; max-height: none; }
+      .search-wrap { max-width: 180px; }
+    }
+  </style>
 </head>
 <body>
-    <h2>Formulário de Envio para WhatsApp</h2>
-    <form id="whatsappForm">
-        <label for="nome">Nome:</label><br>
-        <input type="text" id="nome" name="nome" required><br><br>
 
-        <label for="telefone">Telefone (ex: 5511987654321):</label><br>
-        <input type="text" id="telefone" name="telefone" required><br><br>
+<header>
+  <a class="header-brand" href="#">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="10" rx="1"/><rect x="14" y="17" width="7" height="4" rx="1"/>
+    </svg>
+    Kanban Board
+  </a>
+  <div class="search-wrap">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+    </svg>
+    <input type="text" id="searchInput" placeholder="Buscar tarefas…" />
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-primary" onclick="openModal()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+      Nova tarefa
+    </button>
+  </div>
+</header>
 
-        <label for="designacao">Designação:</label><br>
-        <input type="text" id="designacao" name="designacao" required><br><br>
+<main class="board" id="board">
+  <div class="column col-todo" data-col="todo">
+    <div class="column-header">
+      <span class="col-dot"></span>
+      <span class="col-title">A Fazer</span>
+      <span class="col-count" id="count-todo">0</span>
+    </div>
+    <div class="cards" id="cards-todo"></div>
+    <button class="add-card-btn" onclick="openModal('todo')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+      Adicionar tarefa
+    </button>
+  </div>
 
-        <button type="submit">Enviar</button>
-    </form>
+  <div class="column col-progress" data-col="progress">
+    <div class="column-header">
+      <span class="col-dot"></span>
+      <span class="col-title">Em Andamento</span>
+      <span class="col-count" id="count-progress">0</span>
+    </div>
+    <div class="cards" id="cards-progress"></div>
+    <button class="add-card-btn" onclick="openModal('progress')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+      Adicionar tarefa
+    </button>
+  </div>
 
-    <div id="resposta"></div>
+  <div class="column col-done" data-col="done">
+    <div class="column-header">
+      <span class="col-dot"></span>
+      <span class="col-title">Concluído</span>
+      <span class="col-count" id="count-done">0</span>
+    </div>
+    <div class="cards" id="cards-done"></div>
+    <button class="add-card-btn" onclick="openModal('done')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+      Adicionar tarefa
+    </button>
+  </div>
+</main>
 
-    <script>
-        document.getElementById('whatsappForm').addEventListener('submit', async function (e) {
-            e.preventDefault();
+<div class="overlay" id="modalOverlay" onclick="overlayClick(event)">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">Nova tarefa</span>
+      <button class="btn-icon" onclick="closeModal()" aria-label="Fechar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <label>
+        Título *
+        <input type="text" id="inputTitle" placeholder="Descreva a tarefa…" maxlength="120" />
+      </label>
+      <label>
+        Descrição
+        <textarea id="inputDesc" placeholder="Detalhes opcionais…" maxlength="500"></textarea>
+      </label>
+      <div style="display:flex;gap:12px;">
+        <label style="flex:1;">
+          Coluna
+          <select id="inputCol">
+            <option value="todo">A Fazer</option>
+            <option value="progress">Em Andamento</option>
+            <option value="done">Concluído</option>
+          </select>
+        </label>
+        <label style="flex:1;">
+          Prioridade
+          <select id="inputPriority">
+            <option value="">Nenhuma</option>
+            <option value="alta">Alta</option>
+            <option value="media">Média</option>
+            <option value="baixa">Baixa</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveCard()">Salvar</button>
+    </div>
+  </div>
+</div>
 
-            const nome = document.getElementById('nome').value;
-            const telefone = document.getElementById('telefone').value;
-            const designacao = document.getElementById('designacao').value;
+<div class="overlay" id="confirmOverlay" onclick="confirmOverlayClick(event)">
+  <div class="modal" role="dialog" aria-modal="true" style="max-width:360px;">
+    <div class="modal-header">
+      <span class="modal-title">Excluir tarefa</span>
+      <button class="btn-icon" onclick="closeConfirm()" aria-label="Fechar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-msg">Tem certeza que deseja excluir a tarefa <strong id="confirmCardName"></strong>? Essa ação não pode ser desfeita.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeConfirm()">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">Excluir</button>
+    </div>
+  </div>
+</div>
 
-            const respostaDiv = document.getElementById('resposta');
+<div id="toast"></div>
 
-            try {
-                const response = await fetch("https://rc-app.azurewebsites.net/api/http_trigger", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        nome: nome,
-                        telefone: telefone,
-                        designacao: designacao
-                    })
-                });
+<script>
+let cards = JSON.parse(localStorage.getItem('kanban_cards') || '[]');
+let editingId = null;
+let deletingId = null;
+let dragId = null;
+let searchQuery = '';
 
-                const texto = await response.text();
-                respostaDiv.innerText = `Resposta: ${texto}`;
-            } catch (error) {
-                respostaDiv.innerText = `Erro ao enviar: ${error}`;
-            }
-        });
-    </script>
+function save() { localStorage.setItem('kanban_cards', JSON.stringify(cards)); }
+function uid()  { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function render() {
+  const cols = ['todo', 'progress', 'done'];
+  const q = searchQuery.toLowerCase();
+
+  cols.forEach(col => {
+    const container = document.getElementById('cards-' + col);
+    const colCards = cards.filter(c => c.col === col && (
+      !q || c.title.toLowerCase().includes(q) || (c.desc || '').toLowerCase().includes(q)
+    ));
+
+    document.getElementById('count-' + col).textContent = cards.filter(c => c.col === col).length;
+
+    if (colCards.length === 0) {
+      container.innerHTML = `
+        <div class="empty">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="5" width="18" height="14" rx="2"/>
+            <path d="M3 10h18"/>
+          </svg>
+          Nenhuma tarefa aqui
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = colCards.map(c => {
+      const date = new Date(c.created).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+      const tagCls = c.priority ? 'tag tag-' + c.priority : 'tag tag-none';
+      const tagLabel = { alta: 'Alta', media: 'Média', baixa: 'Baixa' }[c.priority] || '';
+      return `
+      <div class="card" id="card-${c.id}" draggable="true"
+           ondragstart="dragStart('${c.id}')"
+           ondragend="dragEnd()"
+           ondragover="dragOver(event,'${c.id}')"
+           ondrop="drop(event,'${c.id}')">
+        <div class="card-top">
+          <span class="card-title">${escHtml(c.title)}</span>
+          <div class="card-actions">
+            <button class="btn-icon" title="Editar" onclick="openModal('', '${c.id}')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+            </button>
+            <button class="btn-icon" title="Excluir" onclick="askDelete('${c.id}')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </div>
+        </div>
+        ${c.desc ? `<div class="card-desc">${escHtml(c.desc)}</div>` : ''}
+        <div class="card-footer">
+          <span class="${tagCls}">${tagLabel}</span>
+          <span class="card-date">${date}</span>
+        </div>
+      </div>`;
+    }).join('');
+  });
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function openModal(col, id) {
+  editingId = id || null;
+  if (id) {
+    const c = cards.find(x => x.id === id);
+    document.getElementById('modalTitle').textContent = 'Editar tarefa';
+    document.getElementById('inputTitle').value = c.title;
+    document.getElementById('inputDesc').value   = c.desc || '';
+    document.getElementById('inputCol').value    = c.col;
+    document.getElementById('inputPriority').value = c.priority || '';
+  } else {
+    document.getElementById('modalTitle').textContent = 'Nova tarefa';
+    document.getElementById('inputTitle').value = '';
+    document.getElementById('inputDesc').value  = '';
+    document.getElementById('inputCol').value   = col || 'todo';
+    document.getElementById('inputPriority').value = '';
+  }
+  document.getElementById('modalOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('inputTitle').focus(), 60);
+}
+
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); editingId = null; }
+function overlayClick(e) { if (e.target === e.currentTarget) closeModal(); }
+
+function saveCard() {
+  const title = document.getElementById('inputTitle').value.trim();
+  if (!title) { document.getElementById('inputTitle').focus(); return; }
+  const col      = document.getElementById('inputCol').value;
+  const desc     = document.getElementById('inputDesc').value.trim();
+  const priority = document.getElementById('inputPriority').value;
+
+  if (editingId) {
+    const c = cards.find(x => x.id === editingId);
+    c.title = title; c.col = col; c.desc = desc; c.priority = priority;
+    showToast('Tarefa atualizada!');
+  } else {
+    cards.push({ id: uid(), title, desc, col, priority, created: Date.now() });
+    showToast('Tarefa criada!');
+  }
+  save(); render(); closeModal();
+}
+
+function askDelete(id) {
+  deletingId = id;
+  const c = cards.find(x => x.id === id);
+  document.getElementById('confirmCardName').textContent = '"' + c.title + '"';
+  document.getElementById('confirmOverlay').classList.add('open');
+}
+function closeConfirm() { document.getElementById('confirmOverlay').classList.remove('open'); deletingId = null; }
+function confirmOverlayClick(e) { if (e.target === e.currentTarget) closeConfirm(); }
+function confirmDelete() {
+  cards = cards.filter(x => x.id !== deletingId);
+  save(); render(); closeConfirm(); showToast('Tarefa excluída.');
+}
+
+function dragStart(id) {
+  dragId = id;
+  setTimeout(() => { const el = document.getElementById('card-'+id); if(el) el.classList.add('dragging'); }, 0);
+}
+function dragEnd() {
+  document.querySelectorAll('.card.dragging').forEach(el => el.classList.remove('dragging'));
+  document.querySelectorAll('.card.drag-over-above,.card.drag-over-below').forEach(el => {
+    el.classList.remove('drag-over-above','drag-over-below');
+  });
+  document.querySelectorAll('.column.drag-target').forEach(el => el.classList.remove('drag-target'));
+}
+
+document.querySelectorAll('.cards').forEach(zone => {
+  zone.addEventListener('dragover', e => {
+    e.preventDefault();
+    zone.closest('.column').classList.add('drag-target');
+  });
+  zone.addEventListener('dragleave', e => {
+    if (!zone.contains(e.relatedTarget)) {
+      zone.closest('.column').classList.remove('drag-target');
+    }
+  });
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    if (!dragId) return;
+    const col = zone.closest('.column').dataset.col;
+    if (e.target === zone || e.target.classList.contains('empty')) {
+      const c = cards.find(x => x.id === dragId);
+      if (c) { c.col = col; save(); render(); showToast('Tarefa movida!'); }
+    }
+    dragEnd();
+  });
+});
+
+function dragOver(e, targetId) {
+  e.preventDefault(); e.stopPropagation();
+  if (targetId === dragId) return;
+  document.querySelectorAll('.card.drag-over-above,.card.drag-over-below').forEach(el => {
+    el.classList.remove('drag-over-above','drag-over-below');
+  });
+  const rect = document.getElementById('card-'+targetId).getBoundingClientRect();
+  const mid  = rect.top + rect.height / 2;
+  document.getElementById('card-'+targetId).classList.add(e.clientY < mid ? 'drag-over-above' : 'drag-over-below');
+}
+
+function drop(e, targetId) {
+  e.preventDefault(); e.stopPropagation();
+  if (!dragId || targetId === dragId) { dragEnd(); return; }
+
+  const src = cards.find(x => x.id === dragId);
+  const tgt = cards.find(x => x.id === targetId);
+  if (!src || !tgt) { dragEnd(); return; }
+
+  const rect  = document.getElementById('card-'+targetId).getBoundingClientRect();
+  const above = e.clientY < rect.top + rect.height / 2;
+
+  src.col = tgt.col;
+  cards = cards.filter(x => x.id !== dragId);
+  const tgtIdx = cards.findIndex(x => x.id === targetId);
+  cards.splice(above ? tgtIdx : tgtIdx + 1, 0, src);
+
+  save(); render(); showToast('Tarefa movida!');
+  dragEnd();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal(); closeConfirm(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') saveCard();
+});
+
+document.getElementById('searchInput').addEventListener('input', e => {
+  searchQuery = e.target.value;
+  render();
+});
+
+render();
+</script>
 </body>
 </html>
